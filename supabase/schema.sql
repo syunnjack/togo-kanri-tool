@@ -9,9 +9,11 @@ create table if not exists tk_sites (
   github_url text,
   vercel_url text,
   gsc_property text, -- e.g. 'sc-domain:example.jp' or 'https://example.jp/'
+  ga4_property_id text, -- GA4 numeric property ID, e.g. '123456789'
   category text,
   is_active boolean not null default true,
   gsc_connected boolean not null default false,
+  ga4_connected boolean not null default false,
   created_at timestamptz not null default now()
 );
 
@@ -26,6 +28,18 @@ create table if not exists tk_gsc_daily (
   unique (site_id, date)
 );
 create index if not exists tk_gsc_daily_site_date_idx on tk_gsc_daily (site_id, date desc);
+
+create table if not exists tk_ga4_daily (
+  id bigint generated always as identity primary key,
+  site_id uuid not null references tk_sites(id) on delete cascade,
+  date date not null,
+  sessions integer not null default 0,
+  active_users integer not null default 0,
+  page_views integer not null default 0,
+  engagement_rate numeric(6,4) not null default 0,
+  unique (site_id, date)
+);
+create index if not exists tk_ga4_daily_site_date_idx on tk_ga4_daily (site_id, date desc);
 
 create table if not exists tk_suggestions (
   id bigint generated always as identity primary key,
@@ -48,6 +62,7 @@ create table if not exists tk_sync_log (
 
 alter table tk_sites enable row level security;
 alter table tk_gsc_daily enable row level security;
+alter table tk_ga4_daily enable row level security;
 alter table tk_suggestions enable row level security;
 alter table tk_sync_log enable row level security;
 
@@ -56,5 +71,6 @@ alter table tk_sync_log enable row level security;
 -- covers the rare direct-from-browser read via the anon key.)
 create policy "authenticated read tk_sites" on tk_sites for select to authenticated using (true);
 create policy "authenticated read tk_gsc_daily" on tk_gsc_daily for select to authenticated using (true);
+create policy "authenticated read tk_ga4_daily" on tk_ga4_daily for select to authenticated using (true);
 create policy "authenticated read tk_suggestions" on tk_suggestions for select to authenticated using (true);
 create policy "authenticated read tk_sync_log" on tk_sync_log for select to authenticated using (true);

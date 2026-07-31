@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getServiceAccountEmail } from "@/lib/gsc";
-import { getSiteById, listActiveSuggestionsForSite, listGscDailyForSite } from "@/lib/data";
-import { ClicksChart, CtrPositionChart } from "./charts";
+import { getSiteById, listActiveSuggestionsForSite, listGa4DailyForSite, listGscDailyForSite } from "@/lib/data";
+import { ClicksChart, CtrPositionChart, Ga4Chart } from "./charts";
 import { updateSiteSettings } from "./actions";
 
 const SEVERITY_LABEL: Record<string, string> = {
@@ -21,7 +21,8 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
   const site = await getSiteById(id);
   if (!site) notFound();
 
-  const rows = await listGscDailyForSite(id, 90);
+  const gscRows = await listGscDailyForSite(id, 90);
+  const ga4Rows = await listGa4DailyForSite(id, 90);
   const suggestions = await listActiveSuggestionsForSite(id);
   const serviceAccountEmail = getServiceAccountEmail();
 
@@ -42,6 +43,7 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
           </a>
         )}
         <span>{site.gsc_connected ? "GSC連携済み" : "GSC未連携"}</span>
+        <span>{site.ga4_connected ? "GA4連携済み" : "GA4未連携"}</span>
       </div>
 
       {suggestions.length > 0 && (
@@ -59,16 +61,23 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
       )}
 
       <section className="mt-6">
-        <h2 className="text-lg font-bold text-slate-900">クリック・表示回数(90日)</h2>
+        <h2 className="text-lg font-bold text-slate-900">PV・セッション・ユーザー(GA4・90日)</h2>
         <div className="mt-2 rounded-lg border border-slate-200 bg-white p-3">
-          <ClicksChart rows={rows} />
+          <Ga4Chart rows={ga4Rows} />
         </div>
       </section>
 
       <section className="mt-6">
-        <h2 className="text-lg font-bold text-slate-900">CTR・平均順位(90日)</h2>
+        <h2 className="text-lg font-bold text-slate-900">クリック・表示回数(GSC・90日)</h2>
         <div className="mt-2 rounded-lg border border-slate-200 bg-white p-3">
-          <CtrPositionChart rows={rows} />
+          <ClicksChart rows={gscRows} />
+        </div>
+      </section>
+
+      <section className="mt-6">
+        <h2 className="text-lg font-bold text-slate-900">CTR・平均順位(GSC・90日)</h2>
+        <div className="mt-2 rounded-lg border border-slate-200 bg-white p-3">
+          <CtrPositionChart rows={gscRows} />
         </div>
       </section>
 
@@ -97,6 +106,21 @@ export default async function SiteDetailPage({ params }: { params: Promise<{ id:
             {serviceAccountEmail && (
               <span className="mt-1 block text-xs text-slate-400">
                 このプロパティのSearch Consoleに {serviceAccountEmail} を「制限付き」ユーザーとして追加してください。
+              </span>
+            )}
+          </label>
+          <label className="text-sm text-slate-600">
+            GA4 プロパティID
+            <input
+              type="text"
+              name="ga4_property_id"
+              defaultValue={site.ga4_property_id ?? ""}
+              placeholder="123456789"
+              className="mt-1 w-full rounded border border-slate-300 px-3 py-2"
+            />
+            {serviceAccountEmail && (
+              <span className="mt-1 block text-xs text-slate-400">
+                GA4管理画面(プロパティ設定 → プロパティのアクセス管理)で {serviceAccountEmail} を「閲覧者」として追加してください。
               </span>
             )}
           </label>

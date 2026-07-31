@@ -1,5 +1,5 @@
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import type { GscDaily, Site, Suggestion } from "@/lib/types";
+import type { Ga4Daily, GscDaily, Site, Suggestion } from "@/lib/types";
 
 export async function listSites(): Promise<Site[]> {
   const supabase = createServiceRoleClient();
@@ -59,10 +59,51 @@ export async function setSiteGscConnected(siteId: string, connected: boolean) {
   await supabase.from("tk_sites").update({ gsc_connected: connected }).eq("id", siteId);
 }
 
-const AUTO_SUGGESTION_CATEGORIES = ["low_ctr", "traffic_decline", "position_drop", "growth", "no_data"];
+/** Daily GA4 rows for a set of sites within the last `days` days, oldest first. */
+export async function listGa4DailyForSites(siteIds: string[], days: number): Promise<Ga4Daily[]> {
+  if (siteIds.length === 0) return [];
+  const supabase = createServiceRoleClient();
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+  const sinceStr = since.toISOString().slice(0, 10);
 
+  const { data } = await supabase
+    .from("tk_ga4_daily")
+    .select("*")
+    .in("site_id", siteIds)
+    .gte("date", sinceStr)
+    .order("date", { ascending: true });
+  return data ?? [];
+}
+
+export async function listGa4DailyForSite(siteId: string, days: number): Promise<Ga4Daily[]> {
+  return listGa4DailyForSites([siteId], days);
+}
+
+export async function upsertGa4Daily(
+  siteId: string,
+  rows: { date: string; sessions: number; active_users: number; page_views: number; engagement_rate: number }[]
+) {
+  if (rows.length === 0) return;
+  const supabase = createServiceRoleClient();
+  await supabase.from("tk_ga4_daily").upsert(
+    rows.map((r) => ({ site_id: siteId, ...r })),
+    { onConflict: "site_id,date" }
+  );
+}
+
+export async function setSiteGa4Connected(siteId: string, connected: boolean) {
+  const supabase = createServiceRoleClient();
+  await supabase.from("tk_sites").update({ ga4_connected: connected }).eq("id", siteId);
+}
+
+export const GSC_SUGGESTION_CATEGORIES = ["low_ctr", "traffic_decline", "position_drop", "growth", "no_data"];
+export const GA4_SUGGESTION_CATEGORIES = ["pv_decline", "pv_growth", "low_engagement", "no_ga4_data"];
+
+/** Replaces this site's auto-generated suggestions within `categories` only, leaving others (e.g. from a different data source) untouched. */
 export async function replaceAutoSuggestions(
   siteId: string,
+  categories: string[],
   suggestions: { severity: Suggestion["severity"]; category: string; message: string }[]
 ) {
   const supabase = createServiceRoleClient();
@@ -70,7 +111,7 @@ export async function replaceAutoSuggestions(
     .from("tk_suggestions")
     .delete()
     .eq("site_id", siteId)
-    .in("category", AUTO_SUGGESTION_CATEGORIES)
+    .in("category", categories)
     .eq("is_resolved", false);
   if (suggestions.length > 0) {
     await supabase.from("tk_suggestions").insert(suggestions.map((s) => ({ site_id: siteId, ...s })));

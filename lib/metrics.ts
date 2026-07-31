@@ -1,4 +1,4 @@
-import type { GscDaily } from "@/lib/types";
+import type { Ga4Daily, GscDaily } from "@/lib/types";
 
 export interface SiteSummary {
   clicksLast7: number;
@@ -27,6 +27,34 @@ export function summarizeRows(rows: GscDaily[]): SiteSummary {
     impressionsLast7,
     ctrLast7,
     positionLast7,
+    hasData: rows.length > 0,
+  };
+}
+
+export interface Ga4Summary {
+  pageViewsLast7: number;
+  pageViewsPrior7: number;
+  pageViewsChangePct: number | null;
+  sessionsLast7: number;
+  activeUsersLast7: number;
+  hasData: boolean;
+}
+
+export function summarizeGa4Rows(rows: Ga4Daily[]): Ga4Summary {
+  const last7 = rows.slice(-7);
+  const prior7 = rows.slice(-14, -7);
+
+  const pageViewsLast7 = last7.reduce((a, r) => a + r.page_views, 0);
+  const pageViewsPrior7 = prior7.reduce((a, r) => a + r.page_views, 0);
+  const sessionsLast7 = last7.reduce((a, r) => a + r.sessions, 0);
+  const activeUsersLast7 = last7.reduce((a, r) => a + r.active_users, 0);
+
+  return {
+    pageViewsLast7,
+    pageViewsPrior7,
+    pageViewsChangePct: pageViewsPrior7 > 0 ? (pageViewsLast7 - pageViewsPrior7) / pageViewsPrior7 : null,
+    sessionsLast7,
+    activeUsersLast7,
     hasData: rows.length > 0,
   };
 }

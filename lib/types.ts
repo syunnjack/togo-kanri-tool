@@ -6,9 +6,11 @@ export interface Site {
   github_url: string | null;
   vercel_url: string | null;
   gsc_property: string | null;
+  ga4_property_id: string | null;
   category: string | null;
   is_active: boolean;
   gsc_connected: boolean;
+  ga4_connected: boolean;
   created_at: string;
 }
 
@@ -20,6 +22,16 @@ export interface GscDaily {
   impressions: number;
   ctr: number;
   position: number;
+}
+
+export interface Ga4Daily {
+  id: number;
+  site_id: string;
+  date: string;
+  sessions: number;
+  active_users: number;
+  page_views: number;
+  engagement_rate: number;
 }
 
 export type SuggestionSeverity = "info" | "warning" | "critical";
